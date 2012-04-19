@@ -30,21 +30,22 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-__version__ = '0.01'
+__version__ = '0.02'
 
 #------------------------------------------------------------------------------
 # CHANGELOG:
 # 2012-02-17 v0.01 PL: - first version
+# 2012-04-19 v0.02 PL: - added support for multiline text fields
 
 #------------------------------------------------------------------------------
 #TODO:
-# + extract multiline text fields using <w:t> and <w:br> tags
 # - recognize date fields and extract fulldate
 # - test docm files, add support if needed
 # - support legacy fields
 # - CSV output (option)
 # - more advanced parser returning a list of field objects: keep order, and
 #   get fields with no tag, extract other attributes such as title
+# - add possibility to modify field values and write docx back to disk
 
 #------------------------------------------------------------------------------
 import zipfile, sys
@@ -77,6 +78,24 @@ ATTR_FIELDTAGVAL  = NS_W+'val'
 TAG_FIELD_CONTENT = NS_W+'sdtContent'
 TAG_RUN           = NS_W+'r'
 TAG_TEXT          = NS_W+'t'
+TAG_BREAK         = NS_W+'br'
+
+
+def parse_multiline (field_content_elem):
+    """
+    parse an XML element (<w:sdtContent>) containing a single or multiline text
+    field
+    """
+    value = ''
+    # iterate over all children elements
+    for elem in field_content_elem.getiterator():
+        # extract text:
+        if elem.tag == TAG_TEXT:
+            value += elem.text
+        # and line breaks:
+        elif elem.tag == TAG_BREAK:
+            value += '\n'
+    return value
 
 
 def parse_form(filename):
@@ -88,9 +107,12 @@ def parse_form(filename):
         field_tag = field.find(TAG_FIELDPROP+'/'+TAG_FIELDTAG)
         if field_tag is not None:
             tag = field_tag.get(ATTR_FIELDTAGVAL, None)
-            field_value = field.find(TAG_FIELD_CONTENT+'/'+TAG_RUN+'/'+TAG_TEXT)
-            if field_value is not None:
-                value = field_value.text
+##            field_value = field.find(TAG_FIELD_CONTENT+'/'+TAG_RUN+'/'+TAG_TEXT)
+##            if field_value is not None:
+##                value = field_value.text
+            field_content = field.find(TAG_FIELD_CONTENT)
+            if field_content is not None:
+                value = parse_multiline(field_content)
                 fields[tag] = value
     zfile.close()
     return fields
